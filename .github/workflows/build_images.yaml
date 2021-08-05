@@ -10,7 +10,7 @@ jobs:
 
     strategy:
       matrix:
-        dicerobot: ["3.0.0", "3.0.1", "3.0.2"]
+        dicerobot: ["latest"]
 
     steps:
       - name: Checkout

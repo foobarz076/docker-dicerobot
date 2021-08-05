@@ -37,6 +37,7 @@
 
 ## 镜像列表
 
+- `drsanwujiang/dicerobot:latest`
 - `drsanwujiang/dicerobot:3.0.2`
 - `drsanwujiang/dicerobot:3.0.1`
 - `drsanwujiang/dicerobot:3.0.0`
