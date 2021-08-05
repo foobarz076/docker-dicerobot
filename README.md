@@ -1,6 +1,6 @@
 # DiceRobot Docker 镜像
 
-[![License](https://poser.pugx.org/drsanwujiang/docker-dicerobot/license)](https://github.com/drsanwujiang/dicerobot/blob/main/LICENSE)
+[![GitHub](https://img.shields.io/github/license/drsanwujiang/docker-dicerobot)](https://github.com/drsanwujiang/dicerobot/blob/main/LICENSE)
 
 ## 如何使用
 
