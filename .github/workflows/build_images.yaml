@@ -29,15 +29,15 @@ jobs:
         id: set_full_names
         run: echo "::set-output name=full_names::drsanwujiang/dicerobot:${{ matrix.dicerobot }}"
 
-      - name: Build and push Docker image drsanwujiang/dicerobot:${{ matrix.dicerobot }}
+      - name: Build and push version ${{ matrix.dicerobot }}
         id: docker_build
         uses: docker/build-push-action@v2
         with:
           context: .
           file: dockerfiles/${{ matrix.dicerobot }}/Dockerfile
-          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8,linux/ppc64le
+          platforms: linux/amd64,linux/arm/v7,linux/arm64/v8
           push: true
           tags: ${{ steps.set_full_names.outputs.full_names }}
 
-      - name: Image digest of drsanwujiang/dicerobot:${{ matrix.dicerobot }}
+      - name: Image digest of version ${{ matrix.dicerobot }}
         run: echo ${{ steps.docker_build.outputs.digest }}
