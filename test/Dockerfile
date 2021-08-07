@@ -6,9 +6,12 @@ ENV container docker
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG C.UTF-8
 
+ARG TARGETPLATFORM
+
 # Init
 RUN apt-get update; \
-    apt-get install -y wget
+    apt-get install -y wget; \
+    cd /root
 
 # Java
 ENV JAVA_VERSION jdk-11.0.11+9
@@ -18,10 +21,26 @@ RUN apt-get update; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
-RUN wget -qO /tmp/openjdk.tar.gz https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.11%2B9/OpenJDK11U-jre_x64_linux_hotspot_11.0.11_9.tar.gz; \
+RUN case "${TARGETPLATFORM}" in \
+        linux/amd64) \
+            JAVA_BINARY_URL="https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.11%2B9/OpenJDK11U-jre_x64_linux_hotspot_11.0.11_9.tar.gz"; \
+            ;; \
+        linux/arm64) \
+            JAVA_BINARY_URL="https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.11%2B9/OpenJDK11U-jre_aarch64_linux_hotspot_11.0.11_9.tar.gz"; \
+            ;; \
+        linux/arm/v7) \
+            JAVA_BINARY_URL="https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.11%2B9/OpenJDK11U-jre_arm_linux_hotspot_11.0.11_9.tar.gz"; \
+            ;; \
+        *) \
+            echo "Unsupported platform: ${TARGETPLATFORM}"; \
+            exit 1; \
+            ;; \
+    esac; \
+    wget -qO /tmp/openjdk.tar.gz ${JAVA_BINARY_URL}; \
     mkdir -p /opt/java/openjdk; \
     cd /opt/java/openjdk; \
     tar -xf /tmp/openjdk.tar.gz --strip-components=1; \
+    cd /root; \
     rm -rf /tmp/openjdk.tar.gz
 
 ENV JAVA_HOME=/opt/java/openjdk \
