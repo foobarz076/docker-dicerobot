@@ -100,7 +100,7 @@ VOLUME ["/root/dicerobot", "/root/mirai"]
 
 WORKDIR /root
 
-COPY ./dockerfiles/latest/*.sh /root/
+COPY ./dockerfiles/3.1.0/*.sh /root/
 
 EXPOSE 9500
 
