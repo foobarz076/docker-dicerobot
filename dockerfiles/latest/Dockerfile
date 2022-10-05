@@ -13,65 +13,30 @@ ENV container docker
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG C.UTF-8
 
-ARG TARGETPLATFORM
+ARG DEB_MIRROR
+ARG ADOPTIUM_MIRROR_URL
+ARG COMPOSER_MIRROR_URL
+ARG DICEBOT_UID
 
 # Init
+RUN sed -i "s/deb.debian.org/${DEB_MIRROR}/g" /etc/apt/sources.list
+RUN sed -i "s|security.debian.org/debian-security|${DEB_MIRROR}/debian-security|g" /etc/apt/sources.list
+
 RUN apt-get update; \
-    apt-get install -y wget; \
-    cd /root
+    apt-get install -y wget tzdata ca-certificates fontconfig locales apt-transport-https;
 
 # Java
-ENV JAVA_VERSION jdk-11.0.11+9
-
-RUN apt-get update; \
-    apt-get install -y tzdata ca-certificates fontconfig locales; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
-
-RUN case "${TARGETPLATFORM}" in \
-        linux/amd64) \
-            JAVA_BINARY_URL="https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.11%2B9/OpenJDK11U-jre_x64_linux_hotspot_11.0.11_9.tar.gz"; \
-            ;; \
-        linux/arm64) \
-            JAVA_BINARY_URL="https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.11%2B9/OpenJDK11U-jre_aarch64_linux_hotspot_11.0.11_9.tar.gz"; \
-            ;; \
-        linux/arm/v7) \
-            JAVA_BINARY_URL="https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.11%2B9/OpenJDK11U-jre_arm_linux_hotspot_11.0.11_9.tar.gz"; \
-            ;; \
-        *) \
-            echo "Unsupported platform: ${TARGETPLATFORM}"; \
-            exit 1; \
-            ;; \
-    esac; \
-    wget -qO /tmp/openjdk.tar.gz ${JAVA_BINARY_URL}; \
-    mkdir -p /opt/java/openjdk; \
-    cd /opt/java/openjdk; \
-    tar -xf /tmp/openjdk.tar.gz --strip-components=1; \
-    cd /root; \
-    rm -rf /tmp/openjdk.tar.gz
-
-ENV JAVA_HOME=/opt/java/openjdk \
-    PATH="/opt/java/openjdk/bin:$PATH"
-
-# Systemd
-RUN apt-get update; \
-    apt-get install -y systemd systemd-sysv; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-RUN rm -f /lib/systemd/system/multi-user.target.wants/* \
-    /etc/systemd/system/*.wants/* \
-    /lib/systemd/system/local-fs.target.wants/* \
-    /lib/systemd/system/sockets.target.wants/*udev* \
-    /lib/systemd/system/sockets.target.wants/*initctl* \
-    /lib/systemd/system/sysinit.target.wants/systemd-tmpfiles-setup* \
-    /lib/systemd/system/systemd-update-utmp*
+RUN mkdir -p /etc/apt/keyrings
+RUN wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public | \
+    tee /etc/apt/keyrings/adoptium.asc
+RUN echo "deb [signed-by=/etc/apt/keyrings/adoptium.asc] ${ADOPTIUM_MIRROR_URL} \
+    $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | \
+    tee /etc/apt/sources.list.d/adoptium.list
+RUN apt-get update && apt-get install -y temurin-11-jdk
 
 # Swoole
 RUN apt-get update; \
-    apt-get install -y libcurl4-openssl-dev libssl-dev zlib1g-dev curl; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y libcurl4-openssl-dev libssl-dev zlib1g-dev curl;
 
 RUN docker-php-ext-install sockets; \
     docker-php-source extract; \
@@ -85,25 +50,27 @@ RUN docker-php-ext-install sockets; \
 
 # DiceRobot Environment
 RUN apt-get update; \
-    apt-get install -y libzip-dev unzip; \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y libzip-dev unzip;
 
 RUN docker-php-ext-install zip; \
     wget -qO composer-setup.php https://install.phpcomposer.com/installer; \
     php composer-setup.php; \
     rm -f composer-setup.php; \
-    mv -f composer.phar /usr/bin/composer; \
-    composer --no-interaction config -g repo.packagist composer https://mirrors.aliyun.com/composer/
+    mv -f composer.phar /usr/local/bin/composer;
 
-VOLUME ["/root/dicerobot", "/root/mirai"]
+RUN composer --no-interaction config -g repo.packagist composer ${COMPOSER_MIRROR_URL}
+RUN composer --no-interaction config -g cache-dir /tmp
 
-WORKDIR /root
+VOLUME ["/dicerobot", "/mirai"]
 
-COPY ./dockerfiles/latest/*.sh /root/
+RUN cp -rv /root/.composer /
+RUN chown -R ${DICEBOT_UID} /.composer 
+
+COPY ./init.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/init.sh
+
+# Clean apt
+RUN apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
 
 EXPOSE 9500
-
-STOPSIGNAL SIGRTMIN+3
-
-ENTRYPOINT ["/lib/systemd/systemd"]

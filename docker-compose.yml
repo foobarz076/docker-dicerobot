@@ -1,0 +1,67 @@
+version: '3'
+
+x-build-base: &build-base
+  build: 
+    context: ./dockerfiles/latest
+    args:
+      DEB_MIRROR: "${BUILD_DEB_MIRROR}"
+      ADOPTIUM_MIRROR_URL: "${BUILD_ADOPTIUM_MIRROR_URL}"
+      COMPOSER_MIRROR_URL: "${BUILD_COMPOSER_MIRROR_URL}"
+      DICEBOT_UID: ${DICEBOT_UID}
+  image: ${DICEBOT_DOCKER_IMAGE}
+
+x-pull-base: &pull-base
+  image: drsanwujiang/dicerobot
+
+x-base: &base
+    # Comment out this line for building image locally.
+    <<: *build-base
+    # Comment out this line for using prebuilt image.
+    # <<: *pull-base
+    user: "${DICEBOT_UID}:1000"
+    restart: on-failure:5
+    volumes:
+      - type: bind
+        source: ./dicerobot
+        target: /dicerobot
+      - type: bind
+        source: ./mirai
+        target: /mirai
+    networks:
+      - internal_network
+      - external_network
+
+services:
+  mirai:
+    <<: *base
+    working_dir: /mirai
+    entrypoint: ["bash","-c","rm -f mirai.fifo; java -jar mcl.jar"]
+
+  dicerobot:
+    <<: *base
+    working_dir: /dicerobot
+    entrypoint: ["bash","-c","/usr/local/bin/php /dicerobot/dicerobot.php"]
+    ports:
+      - '9500:9500'
+    depends_on:
+      - mirai
+
+  init:
+    <<: *base
+    environment:
+      - MIRAI_USER_ID=${MIRAI_USER_ID}
+      - MIRAI_USER_PASSWORD=${MIRAI_USER_PASSWORD}
+    working_dir: /.composer
+    profiles: ["scripts"]
+    entrypoint: ["bash","/usr/local/bin/init.sh"]
+
+  mirai_login:
+    <<: *base
+    working_dir: /mirai
+    profiles: ["scripts"]
+    entrypoint: ["java","-Dmirai.slider.captcha.supported","-jar","mcl.jar"]
+
+networks:
+  external_network:
+  internal_network:
+    internal: true
